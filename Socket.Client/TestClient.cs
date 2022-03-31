@@ -1,11 +1,11 @@
 ﻿using System.Text;
+using Shared.Models;
 using Socket.Client.Events;
 
 namespace Socket.Client;
 
 public class TestClient
 {
-    private int i = 0;
     public async Task Start()
     {
         var client = new ClientTcp();
@@ -21,11 +21,7 @@ public class TestClient
 
     private async void OnMessageReceived(ClientTcp sender, MessageReceivedEventArgs eventArgs)
     {
-        Console.WriteLine("Received\n" + Encoding.UTF8.GetString(eventArgs.Bytes, 0, eventArgs.TotalBytesRead));
-        if (i <= 5)
-        {
-            await sender.SendBytes(Encoding.UTF8.GetBytes("Received Id"), Encoding.UTF8.GetBytes("Received Id"));
-            i++;
-        }
+        Console.WriteLine("Header: " + eventArgs.Header + "\nReceived: " + Encoding.UTF8.GetString(eventArgs.Body.Span));
+        await sender.SendBytes(HeaderConstants.ClientDetails, Encoding.UTF8.GetBytes("Received Id"));
     }
 }

@@ -1,7 +1,6 @@
 ﻿using System.Net;
 using System.Net.Sockets;
 using System.Text;
-using Shared;
 using Socket.Server.Events;
 
 namespace Socket.Server;
@@ -70,7 +69,7 @@ public class TcpServer
                 
                 OnClientConnected?.Invoke(this, eventArgs);
                 
-                _registers.TryGetValue( _buffer[0], out var baseTcpRegister);
+                _registers.TryGetValue( 0, out var baseTcpRegister);
                 baseTcpRegister?.OnClientConnected(this, eventArgs);
 
                 clientSocket.BeginReceive(_buffer, 0, _packetSize, SocketFlags.None, 
@@ -99,7 +98,6 @@ public class TcpServer
             var hs = Encoding.UTF8.GetString(headerLengthAsBytes);
             int.TryParse(hs, out var headerLength);
 
-            var headerData = memoryBuffer.Slice(20, headerLength);
             var bodyData = memoryBuffer.Slice(20 + headerLength);
 
             var eventArgs = new MessageReceivedEventArgs(_totalConnections)
@@ -109,11 +107,11 @@ public class TcpServer
                 TotalBytesRead = bytesRead,
                 ConnectedClients = _clientSockets,
                 Body = bodyData,
-                Header = headerData
+                Header = ReadHeader(_buffer)
             };
             
             OnMessageReceived?.Invoke(this, eventArgs);
-            _registers.TryGetValue( _buffer[0], out var baseTcpRegister);
+            _registers.TryGetValue( ReadHeader(_buffer), out var baseTcpRegister);
             baseTcpRegister?.OnMessageReceived(this, eventArgs);
         }
         catch (Exception e)
@@ -133,8 +131,6 @@ public class TcpServer
     /// Use This Method to Register your Events and Get Access to Properties
     /// </summary>
     /// <typeparam name="TClass"> TClass should Implement <see cref="BaseTcpServerRegister"/></typeparam>
-    /// <param name="dataType">Set the type of Data you want to register with. when any data with that header comes,
-    /// the corresponding function will be called.</param>
     /// <exception cref="ArgumentException">If the Datatype Already Exists.</exception>
     public void Register<TClass>(uint dataHeader) where TClass : BaseTcpServerRegister, new()
     {
@@ -147,6 +143,20 @@ public class TcpServer
         tcpServerRegister.RegisterEvents(this);
     }
 
+    public uint ReadHeader(byte[] buf)
+    {
+        ReadOnlyMemory<byte> buffer = buf;
+
+        var headerLength = buffer.Slice(0, 10);
+        int.TryParse(Encoding.UTF8.GetString( headerLength.Span ), out var lengthAsNum);
+
+        var headerAsMemory = buffer.Slice(20, lengthAsNum);
+
+        uint.TryParse(Encoding.UTF8.GetString(headerAsMemory.Span), out uint header);
+
+        return header;
+    }
+    
     /// <summary>
     /// Send Data to Client Socket.<br/>
     /// first 10 bytes of data is Assigned to read headerLength, 
@@ -155,20 +165,18 @@ public class TcpServer
     /// same followed for Buffer
     /// </summary>
     /// <param name="client">the client to send the data.</param>
-    /// <param name="socket">Extension for Socket Class</param>
-    /// <param name="headerSize">Length of header</param>
-    /// <param name="bodySize">Length of body</param>
-    /// <param name="header">Header Data</param>
+    /// <param name="header">Header Data should be uint. This is later used for Calling specific Method When Registered on Start of the server.<see cref="uint"/></param>
     /// <param name="body">Body Data.</param>
-    public async Task SendBytes(System.Net.Sockets.Socket client, byte[] header, byte[] body)
+    public async Task SendBytes(System.Net.Sockets.Socket client, uint header, byte[] body)
     {
-        long headerSize = header.Length;
-        long bodySize = _packetSize;
-            
-        long hLengthForString = header.Length;
+        byte[] headerBytes = Encoding.UTF8.GetBytes(header.ToString());
+        
+        long headerSize = headerBytes.Length;
+        
+        long hLengthForString = headerBytes.Length;
         long bLengthForString = body.Length;
         
-        ArraySegment<byte> bytes = new byte[headerSize + bodySize];
+        ArraySegment<byte> bytes = new byte[_packetSize];
 
         // take 10 bytes
         var headerToArray = Encoding.UTF8.GetBytes(hLengthForString.ToString());
@@ -181,8 +189,8 @@ public class TcpServer
             0, bytes.Array!, 10, bodyLengthToArray.Length);
         
         // starts from 20 to headerLength
-        Array.Copy(header, 0, bytes.Array!,
-            20, header.Length);
+        Array.Copy(headerBytes, 0, bytes.Array!,
+            20, headerBytes.Length);
         
         // starts from 20 + headerLength to bodyLength
         Array.Copy(body, 0, bytes.Array!,

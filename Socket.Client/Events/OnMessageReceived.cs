@@ -9,6 +9,6 @@ public struct MessageReceivedEventArgs
     public byte[] Bytes { get; set; }
     public int TotalBytesRead { get; set; }
     public NetworkStream NetworkStream { get; set; }
-    public ReadOnlyMemory<byte> Header { get; set; }
+    public uint Header { get; set; }
     public ReadOnlyMemory<byte> Body { get; set; }
 }

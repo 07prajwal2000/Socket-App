@@ -1,7 +1,4 @@
-﻿using System.Net.Sockets;
-using System.Text;
-using System.Text.Json;
-using Shared;
+﻿using System.Text;
 using Shared.Models;
 using Socket.Server.Events;
 
@@ -22,9 +19,8 @@ public class SendClientDetails : BaseTcpServerRegister
 
     public override async void OnClientConnected(TcpServer sender, ClientConnectedEventArgs args)
     {
-        var header = Encoding.UTF8.GetBytes("Your Id");
-        
-        await sender.SendBytes(args.ClientSocket, header, Encoding.UTF8.GetBytes(args.TotalConnections.ToString()));
+        Console.WriteLine("Client Connected. Total Connections: " + args.TotalConnections);
+        await sender.SendBytes(args.ClientSocket, HeaderConstants.ClientDetails, Encoding.UTF8.GetBytes(args.TotalConnections.ToString()));
     }
 
 }
