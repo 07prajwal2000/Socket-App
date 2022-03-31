@@ -17,6 +17,8 @@ public class TcpServer
 
     public readonly TcpListener TcpListener;
     private bool _serverStarted;
+    private bool _alreadyRegisteredForClientConnectedEvent;
+    private BaseTcpRegisterOnClientConnection _onClientConnection;
 
     public static OnClientConnected? OnClientConnected;
     public static OnExceptionRaised? OnExceptionRaised;
@@ -69,8 +71,7 @@ public class TcpServer
                 
                 OnClientConnected?.Invoke(this, eventArgs);
                 
-                _registers.TryGetValue( 0, out var baseTcpRegister);
-                baseTcpRegister?.OnClientConnected(this, eventArgs);
+                _onClientConnection?.OnClientConnected(this, eventArgs);
 
                 clientSocket.BeginReceive(_buffer, 0, _packetSize, SocketFlags.None, 
                     ar =>  ReceiveCallback(ar, clientSocket), clientSocket);
@@ -132,27 +133,42 @@ public class TcpServer
     /// </summary>
     /// <typeparam name="TClass"> TClass should Implement <see cref="BaseTcpServerRegister"/></typeparam>
     /// <exception cref="ArgumentException">If the Datatype Already Exists.</exception>
-    public void Register<TClass>(uint dataHeader) where TClass : BaseTcpServerRegister, new()
+    public bool Register<TClass>(uint dataHeader) where TClass : BaseTcpServerRegister, new()
     {
         if (_registers.ContainsKey(dataHeader))
         {
             throw new ArgumentException($"Already Registered with the type of {dataHeader} in Register() method");
         }
         BaseTcpServerRegister tcpServerRegister = new TClass();
-        _registers.TryAdd(dataHeader, tcpServerRegister);
-        tcpServerRegister.RegisterEvents(this);
+        return _registers.TryAdd(dataHeader, tcpServerRegister);
+    }
+
+    /// <summary>
+    /// Register the class which inherits <see cref="BaseTcpRegisterOnClientConnection"/> <br/>
+    /// when client connected to server Event is fired. <br/>
+    /// Remember : Only once should be Registered. Multiple Registrations will throw Exception.
+    /// </summary>
+    /// <exception cref="Exception">Throws when Multiple Registration happens</exception>
+    public void RegisterForClientConnected<TClass>() where TClass : BaseTcpRegisterOnClientConnection, new()
+    {
+        if (_alreadyRegisteredForClientConnectedEvent)
+        {
+            throw new Exception($"Already Registered for {nameof(RegisterForClientConnected)}. You can Register only once for this type of event.");
+        }
+        _onClientConnection = new TClass();
+        _alreadyRegisteredForClientConnectedEvent = true;
     }
 
     public uint ReadHeader(byte[] buf)
     {
-        ReadOnlyMemory<byte> buffer = buf;
-
+        ReadOnlySpan<byte> buffer = buf;
+        
         var headerLength = buffer.Slice(0, 10);
-        int.TryParse(Encoding.UTF8.GetString( headerLength.Span ), out var lengthAsNum);
+        int.TryParse(Encoding.UTF8.GetString( headerLength ), out var lengthAsNum);
 
         var headerAsMemory = buffer.Slice(20, lengthAsNum);
 
-        uint.TryParse(Encoding.UTF8.GetString(headerAsMemory.Span), out uint header);
+        uint.TryParse(Encoding.UTF8.GetString(headerAsMemory), out uint header);
 
         return header;
     }

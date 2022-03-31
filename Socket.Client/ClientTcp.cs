@@ -9,6 +9,7 @@ public class ClientTcp
 {
     private bool _started;
     private NetworkStream _networkStream;
+    private Dictionary<uint, BaseTcpClientRegister> _registers = new();
 
     private readonly TcpClient _client = new();
     private readonly int _port;
@@ -67,29 +68,29 @@ public class ClientTcp
         try
         {
             bytesRead = _networkStream.EndRead(result);
-            if (bytesRead <= 0)
-            {
-                return;
-            }
+            if (bytesRead <= 0) return;
 
             ReadOnlyMemory<byte> memoryBuffer = _buffer;
-            
             var headerLengthAsBytes = memoryBuffer.Slice(0, 10).Span;
             var hs = Encoding.UTF8.GetString(headerLengthAsBytes);
             int.TryParse(hs, out var headerLength);
 
-            var headerData = memoryBuffer.Slice(20, headerLength);
-            uint.TryParse(Encoding.UTF8.GetString(headerData.Span), out var header);
             var bodyData = memoryBuffer.Slice(20 + headerLength);
-
-            OnMessageReceived?.Invoke(this, new MessageReceivedEventArgs
+            var headerData = ReadHeader(_buffer);
+            
+            var receivedEventArgs = new MessageReceivedEventArgs
             {
                 Bytes = _buffer,
                 TotalBytesRead = bytesRead,
                 NetworkStream = _networkStream,
-                Header = header,
+                Header = headerData,
                 Body = bodyData
-            });
+            };
+
+            _registers.TryGetValue(headerData, out var register);
+            register?.OnServerRespond(this, receivedEventArgs);
+            
+            OnMessageReceived?.Invoke(this, receivedEventArgs);
         }
         catch (Exception e)
         {
@@ -143,6 +144,36 @@ public class ClientTcp
             20 + headerSize, body.Length);
         
         await SendBytes(bytes.Array!);
+    }
+    
+    public uint ReadHeader(byte[] buf)
+    {
+        ReadOnlySpan<byte> buffer = buf;
+
+        var headerLength = buffer.Slice(0, 10);
+        int.TryParse(Encoding.UTF8.GetString( headerLength ), out var lengthAsNum);
+
+        var headerAsMemory = buffer.Slice(20, lengthAsNum);
+
+        uint.TryParse(Encoding.UTF8.GetString(headerAsMemory), out uint header);
+
+        return header;
+    }
+
+    /// <summary>
+    /// Use This Method to Register your Events and Get Access to Properties
+    /// </summary>
+    /// <typeparam name="TClass"> TClass should Implement <see cref="BaseTcpClientRegister"/></typeparam>
+    /// <exception cref="ArgumentException">If the Datatype Already Exists.</exception>
+    public bool Register<TClass>(uint header) where TClass : BaseTcpClientRegister, new()
+    {
+        if (_registers.ContainsKey(header))
+        {
+            throw new ArgumentException($"Already Registered with the type of {header} in Register() method");
+        }
+
+        BaseTcpClientRegister register = new TClass();
+        return _registers.TryAdd(header, register);
     }
     
     private async Task SendBytes(byte[] bufferWithHeader) => 

@@ -11,7 +11,7 @@ public class TestServer
         Console.WriteLine("Server Started");
 
         var server = new TcpServer();
-        server.Register<SendClientDetails>(0);
+        server.RegisterForClientConnected<SendClientDetails>();
         server.Register<Test>(HeaderConstants.ClientDetails);
         
         await server.Start();
@@ -25,19 +25,19 @@ public class TestServer
 
 public class Test : BaseTcpServerRegister
 {
-    public override void RegisterEvents(TcpServer server)
-    {
-        
-    }
-
     public override void OnMessageReceived(TcpServer sender, MessageReceivedEventArgs args)
     {
         var body = Encoding.UTF8.GetString(args.Body.Span);
-        Console.WriteLine(body);
+        Console.WriteLine("Body: " + body);
+    }
+}
+
+public class SendClientDetails : BaseTcpRegisterOnClientConnection
+{
+    public override async void OnClientConnected(TcpServer sender, ClientConnectedEventArgs args)
+    {
+        Console.WriteLine("Client Connected. Total Connections: " + args.TotalConnections);
+        await sender.SendBytes(args.ClientSocket, HeaderConstants.ClientDetails, Encoding.UTF8.GetBytes(args.TotalConnections.ToString()));
     }
 
-    public override void OnClientConnected(TcpServer sender, ClientConnectedEventArgs args)
-    {
-        
-    }
 }

@@ -2,7 +2,7 @@
 using Shared.Models;
 using Socket.Client.Events;
 
-namespace Socket.Client;
+namespace Socket.Client.Demo;
 
 public class TestClient
 {
@@ -10,7 +10,8 @@ public class TestClient
     {
         var client = new ClientTcp();
         ClientTcp.OnMessageReceived += OnMessageReceived;
-
+        client.Register<GetIdFromServer>(HeaderConstants.ClientDetails);
+        
         await client.Start();
 
         Console.WriteLine("Press any key to stop.");
@@ -23,5 +24,13 @@ public class TestClient
     {
         Console.WriteLine("Header: " + eventArgs.Header + "\nReceived: " + Encoding.UTF8.GetString(eventArgs.Body.Span));
         await sender.SendBytes(HeaderConstants.ClientDetails, Encoding.UTF8.GetBytes("Received Id"));
+    }
+}
+
+public class GetIdFromServer : BaseTcpClientRegister
+{
+    public override void OnServerRespond(ClientTcp sender, MessageReceivedEventArgs eventArgs)
+    {
+        Console.WriteLine(eventArgs.TotalBytesRead);
     }
 }
