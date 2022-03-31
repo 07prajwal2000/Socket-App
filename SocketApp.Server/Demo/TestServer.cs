@@ -12,8 +12,7 @@ public class TestServer
 
         var server = new TcpServer();
         server.RegisterForClientConnected<SendClientDetails>();
-        server.Register<Test>(HeaderConstants.ClientDetails);
-        
+        server.Register<ReceiveMessage>(HeaderConstants.ClientDetails);
         await server.Start();
         Console.ReadLine();
 
@@ -23,7 +22,7 @@ public class TestServer
     }
 }
 
-public class Test : BaseTcpServerRegister
+public class ReceiveMessage : BaseTcpServerRegister
 {
     public override void OnMessageReceived(TcpServer sender, MessageReceivedEventArgs args)
     {
@@ -39,5 +38,4 @@ public class SendClientDetails : BaseTcpRegisterOnClientConnection
         Console.WriteLine("Client Connected. Total Connections: " + args.TotalConnections);
         await sender.SendBytes(args.ClientSocket, HeaderConstants.ClientDetails, Encoding.UTF8.GetBytes(args.TotalConnections.ToString()));
     }
-
 }
