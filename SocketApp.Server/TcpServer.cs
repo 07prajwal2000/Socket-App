@@ -1,5 +1,6 @@
 ﻿using System.Net;
 using System.Net.Sockets;
+using Shared;
 using SocketApp.Server.Events;
 
 namespace SocketApp.Server;
@@ -7,7 +8,7 @@ namespace SocketApp.Server;
 public class TcpServer
 {
     private readonly List<Socket> _clientSockets = new();
-
+    
     private readonly Dictionary<uint, BaseTcpServerRegister> _registers = new();
     private int _totalConnections;
     private readonly byte[] _buffer;
@@ -15,12 +16,11 @@ public class TcpServer
     public readonly int PacketSize;
     public readonly int HeaderSize = 10;
     public readonly int BodyLengthSizeInBuffer = 10;
-    public int TotalAvailableBodyLength => PacketSize - (BodyLengthSizeInBuffer + HeaderSize);
-    
     /// <summary>
     /// The range starts from HeaderSize to this Size contains the Size of the Body which is sent from the Server.
     /// </summary>
-    
+    public int TotalAvailableBodyLength => PacketSize - (BodyLengthSizeInBuffer + HeaderSize);
+
     public readonly TcpListener TcpListener;
     private bool _serverStarted;
     private bool _alreadyRegisteredForClientConnectedEvent;
@@ -74,7 +74,8 @@ public class TcpServer
                 {
                     TotalConnections = _totalConnections,
                     ClientSocket = clientSocket,
-                    ConnectedClients = _clientSockets
+                    ConnectedClients = _clientSockets,
+                    NetworkPacket = new NetworkPacket(TotalAvailableBodyLength)
                 };
                 
                 OnClientConnected?.Invoke(this, eventArgs);
@@ -114,7 +115,8 @@ public class TcpServer
                 ConnectedClients = _clientSockets,
                 Body = body,
                 TotalNumberOfDataContainsInBody = bodyLength, 
-                Header = header
+                Header = header,
+                NetworkPacket = new NetworkPacket(body.ToArray(), false)
             };
             
             OnMessageReceived?.Invoke(this, eventArgs);
@@ -132,7 +134,10 @@ public class TcpServer
         }
     }
 
-    public void Stop() => TcpListener.Stop();
+    public void Stop()
+    {
+        TcpListener.Stop();
+    }
 
     /// <summary>
     /// Use This Method to Register your Events and Get Access to Properties
@@ -182,19 +187,47 @@ public class TcpServer
 
         byte[] bodyLengthBytes = BitConverter.GetBytes(body.Length);
         
+        var bytes = CopyArray(body, headerBytes, bodyLengthBytes);
+        
+        await SendBytes(client, bytes.Array!);
+    }
+
+    /// <summary>
+    /// Send Data to Client Socket.<br/>
+    /// first 10 bytes of data is Assigned to read headerLength, 
+    /// next 10 bytes of data is Assigned to read BodyLength,
+    /// after that starts the Header Data and ranges to headerLength
+    /// same followed for Buffer
+    /// </summary>
+    /// <param name="client">the client to send the data.</param>
+    /// <param name="header">Header Data should be uint. This is later used for Calling specific Method When Registered on Start of the server.<see cref="uint"/></param>
+    /// <param name="body">Body Data.</param>
+    /// <param name="bodyLength">Total no of bytes written into buffer. or Total bytes containing in body</param>
+    public async Task SendBytes(Socket client, uint header, byte[] body, int bodyLength)
+    {
+        byte[] headerBytes = BitConverter.GetBytes(header);
+
+        byte[] bodyLengthBytes = BitConverter.GetBytes(bodyLength);
+        
+        var bytes = CopyArray(body, headerBytes, bodyLengthBytes);
+
+        await SendBytes(client, bytes.Array!);
+    }
+
+    private ArraySegment<byte> CopyArray(byte[] body, byte[] headerBytes, byte[] bodyLengthBytes)
+    {
         ArraySegment<byte> bytes = new byte[HeaderSize + BodyLengthSizeInBuffer + body.Length];
 
         Array.Copy(headerBytes,
             0, bytes.Array!, 0, headerBytes.Length);
-        
+
         Array.Copy(bodyLengthBytes, 0, bytes.Array!, HeaderSize, bodyLengthBytes.Length);
-        
+
         Array.Copy(body, 0, bytes.Array!,
             BodyLengthSizeInBuffer + HeaderSize, body.Length);
-        
-        await SendBytes(client, bytes.Array!);
+        return bytes;
     }
-    
+
     public uint ReadHeader(ReadOnlySpan<byte> buffer)
     {
         var headerSpan = buffer.Slice(0, 10);

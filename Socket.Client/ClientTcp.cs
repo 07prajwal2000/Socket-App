@@ -1,5 +1,6 @@
 ﻿using System.Net;
 using System.Net.Sockets;
+using Shared;
 using Socket.Client.Events;
 
 namespace Socket.Client;
@@ -92,8 +93,9 @@ public class ClientTcp
                 TotalBytesRead = bytesRead,
                 NetworkStream = _networkStream,
                 Header = headerData,
-                TotalNumberOfBytesContainInBuffer = bodyLength,
-                Body = bodyData
+                TotalNumberOfBytesContainsInBody = bodyLength,
+                Body = bodyData,
+                NetworkPacket = new NetworkPacket(bodyData)
             };
 
             _registers.TryGetValue(headerData, out var register);
@@ -129,19 +131,46 @@ public class ClientTcp
         
         byte[] bodyLengthBytes = BitConverter.GetBytes(body.Length);
         
+        var bytes = CopyArray(body, headerBytes, bodyLengthBytes);
+
+        await SendBytes(bytes.Array!);
+    }
+
+    /// <summary>
+    /// Send Data to Client Socket.<br/>
+    /// first 10 bytes of data is Assigned to read headerLength, 
+    /// next 10 bytes of data is Assigned to read BodyLength,
+    /// after that starts the Header Data and ranges to headerLength
+    /// same followed for Buffer
+    /// </summary>
+    /// <param name="header">Header Data should be uint. This is later used for Calling specific Method When Registered on Start of the server.<see cref="uint"/></param>
+    /// <param name="body">Body Data.</param>
+    /// <param name="totalBytesInBody">Total no of bytes written into buffer. or Total bytes containing in body</param>
+    public async Task SendBytes(uint header, byte[] body, int totalBytesInBody)
+    {
+        byte[] headerBytes = BitConverter.GetBytes(header);
+        
+        byte[] bodyLengthBytes = BitConverter.GetBytes(totalBytesInBody);
+        
+        var bytes = CopyArray(body, headerBytes, bodyLengthBytes);
+
+        await SendBytes(bytes.Array!);
+    }
+
+    private ArraySegment<byte> CopyArray(byte[] body, byte[] headerBytes, byte[] bodyLengthBytes)
+    {
         ArraySegment<byte> bytes = new byte[HeaderSize + BodyLengthSizeInBuffer + body.Length];
 
         Array.Copy(headerBytes,
             0, bytes.Array!, 0, headerBytes.Length);
-        
+
         Array.Copy(bodyLengthBytes, 0, bytes.Array!, HeaderSize, bodyLengthBytes.Length);
-        
+
         Array.Copy(body, 0, bytes.Array!,
             BodyLengthSizeInBuffer + HeaderSize, body.Length);
-        
-        await SendBytes(bytes.Array!);
+        return bytes;
     }
-    
+
     public uint ReadHeader(ReadOnlySpan<byte> buffer)
     {
         var headerSpan = buffer.Slice(0, 10);

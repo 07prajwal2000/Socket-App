@@ -37,6 +37,12 @@ public class SendClientDetails : BaseTcpRegisterOnClientConnection
     public override async void OnClientConnected(TcpServer sender, ClientConnectedEventArgs args)
     {
         Console.WriteLine("Client Connected. Total Connections: " + args.TotalConnections);
-        await sender.SendBytes(args.ClientSocket, HeaderConstants.ClientDetails, Encoding.UTF8.GetBytes(args.TotalConnections.ToString()));
+        var netPacket = args.NetworkPacket;
+        netPacket.WriteInt(args.TotalConnections);
+        netPacket.WriteBool(true);
+        netPacket.WriteString("Prajwal Aradhya");
+        
+        await sender.SendBytes(args.ClientSocket, HeaderConstants.ClientDetails, netPacket.ToArray(out int totalBytes), totalBytes);
+        // await sender.SendBytes(args.ClientSocket, HeaderConstants.ClientDetails, Encoding.UTF8.GetBytes(args.TotalConnections.ToString()));
     }
 }

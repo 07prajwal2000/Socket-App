@@ -9,7 +9,6 @@ public class TestClient
     public async Task Start()
     {
         var client = new ClientTcp();
-        ClientTcp.OnMessageReceived += OnMessageReceived;
         client.Register<GetIdFromServer>(HeaderConstants.ClientDetails);
         
         await client.Start();
@@ -19,18 +18,16 @@ public class TestClient
 
         client.Stop();
     }
-
-    private async void OnMessageReceived(ClientTcp sender, MessageReceivedEventArgs eventArgs)
-    {
-        Console.WriteLine("Header: " + eventArgs.Header + "\nReceived Data: " + Encoding.UTF8.GetString(eventArgs.Body.Span));
-        await sender.SendBytes(HeaderConstants.ClientDetails, Encoding.UTF8.GetBytes("Received Id"));
-    }
 }
 
 public class GetIdFromServer : BaseTcpClientRegister
 {
-    public override void OnServerRespond(ClientTcp sender, MessageReceivedEventArgs eventArgs)
+    public override async void OnServerRespond(ClientTcp sender, MessageReceivedEventArgs args)
     {
-        Console.WriteLine(eventArgs.TotalBytesRead);
+        var netPacket = args.NetworkPacket;
+        Console.WriteLine(netPacket.ReadInt());
+        Console.WriteLine(netPacket.ReadBool());
+        Console.WriteLine(netPacket.ReadString());
+        await sender.SendBytes(HeaderConstants.ClientDetails, Encoding.UTF8.GetBytes("Received Id"));
     }
 }
