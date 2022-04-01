@@ -1,8 +1,8 @@
 ﻿using System.Text;
-using Shared.Models;
+using Shared;
 using Socket.Client.Events;
 
-namespace Socket.Client.Demo;
+namespace Socket.Client.Test.Demo;
 
 public class TestClient
 {

@@ -2,6 +2,7 @@
 using System.Net.Sockets;
 using System.Text;
 using Socket.Server.Events;
+using SocketApp.Server;
 
 namespace Socket.Server;
 

@@ -1,8 +1,9 @@
 ﻿using System.Text;
-using Shared.Models;
+using Shared;
 using Socket.Server.Events;
+using SocketApp.Server;
 
-namespace Socket.Server.Demo;
+namespace Socket.Server.Test;
 
 public class TestServer
 {

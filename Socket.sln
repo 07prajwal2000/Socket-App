@@ -6,6 +6,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Socket.Client", "Socket.Cli
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Shared", "Shared\Shared.csproj", "{2546A38E-1965-4E23-B1DD-09FD67149039}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Socket.Server.Test", "Socket.Server.Test\Socket.Server.Test.csproj", "{45D2E178-F199-4C82-BA59-5C90E158C3CC}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Socket.Client.Test", "Socket.Client.Test\Socket.Client.Test.csproj", "{C1BA1F1F-78DB-42A8-8308-631F62C67EFB}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -24,5 +28,13 @@ Global
 		{2546A38E-1965-4E23-B1DD-09FD67149039}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2546A38E-1965-4E23-B1DD-09FD67149039}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2546A38E-1965-4E23-B1DD-09FD67149039}.Release|Any CPU.Build.0 = Release|Any CPU
+		{45D2E178-F199-4C82-BA59-5C90E158C3CC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{45D2E178-F199-4C82-BA59-5C90E158C3CC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{45D2E178-F199-4C82-BA59-5C90E158C3CC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{45D2E178-F199-4C82-BA59-5C90E158C3CC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C1BA1F1F-78DB-42A8-8308-631F62C67EFB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C1BA1F1F-78DB-42A8-8308-631F62C67EFB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C1BA1F1F-78DB-42A8-8308-631F62C67EFB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C1BA1F1F-78DB-42A8-8308-631F62C67EFB}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

@@ -1,5 +1,4 @@
-﻿using Socket.Client;
-using Socket.Client.Demo;
+﻿using Socket.Client.Test.Demo;
 
 var testClient = new TestClient();
 

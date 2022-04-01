@@ -1,8 +1,4 @@
-﻿using System.Net.Sockets;
-using System.Text;
-using Socket.Server;
-using Socket.Server.Demo;
-using Socket.Server.Events;
+﻿using Socket.Server.Test;
 
 var testServer = new TestServer();
 
