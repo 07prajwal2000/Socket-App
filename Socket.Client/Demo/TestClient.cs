@@ -22,7 +22,7 @@ public class TestClient
 
     private async void OnMessageReceived(ClientTcp sender, MessageReceivedEventArgs eventArgs)
     {
-        Console.WriteLine("Header: " + eventArgs.Header + "\nReceived: " + Encoding.UTF8.GetString(eventArgs.Body.Span));
+        Console.WriteLine("Header: " + eventArgs.Header + "\nReceived Data: " + Encoding.UTF8.GetString(eventArgs.Body.Span));
         await sender.SendBytes(HeaderConstants.ClientDetails, Encoding.UTF8.GetBytes("Received Id"));
     }
 }

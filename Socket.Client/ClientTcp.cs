@@ -14,23 +14,34 @@ public class ClientTcp
     private readonly TcpClient _client = new();
     private readonly int _port;
     private readonly IPAddress _ipAddress;
-    public readonly int PacketSize;
     private readonly byte[] _buffer;
     
+    public readonly int PacketSize;
+    public readonly int HeaderSize = 10;
+    /// <summary>
+    /// The range starts from HeaderSize to this Size contains the Size of the Body which is sent from the Server.
+    /// </summary>
+    public readonly int BodyLengthSizeInBuffer = 10;
+
     public static OnServerConnected<ClientTcp>? OnServerConnected;
     public static OnMessageReceived<ClientTcp>? OnMessageReceived;
     public static OnExceptionRaised? OnExceptionRaised;
 
-    public ClientTcp(int packetSize = 1024, int port = 2500)
+    public ClientTcp(int packetSize = 1024, int port = 2500, int headerSize = 10, int bodyLengthSizeInBuffer = 10)
     {
+        HeaderSize = headerSize;
+        BodyLengthSizeInBuffer = bodyLengthSizeInBuffer;
+        
         PacketSize = packetSize;
         _buffer = new byte[packetSize];
         _port = port;
         _ipAddress = IPAddress.Loopback;
     }
 
-    public ClientTcp(IPAddress ipAddress, int port = 2500, int packetSize = 1024)
+    public ClientTcp(IPAddress ipAddress, int port = 2500, int packetSize = 1024, int headerSize = 10, int bodyLengthSizeInBuffer = 10)
     {
+        BodyLengthSizeInBuffer = bodyLengthSizeInBuffer;
+        HeaderSize = headerSize;
         _ipAddress = ipAddress;
         _port = port;
         PacketSize = packetSize;
@@ -70,20 +81,19 @@ public class ClientTcp
             bytesRead = _networkStream.EndRead(result);
             if (bytesRead <= 0) return;
 
-            ReadOnlyMemory<byte> memoryBuffer = _buffer;
-            var headerLengthAsBytes = memoryBuffer.Slice(0, 10).Span;
-            var hs = Encoding.UTF8.GetString(headerLengthAsBytes);
-            int.TryParse(hs, out var headerLength);
 
-            var bodyData = memoryBuffer.Slice(20 + headerLength);
             var headerData = ReadHeader(_buffer);
+            var bodyLength = ReadBodyLength(_buffer);
+            
+            ReadOnlyMemory<byte> memoryBuffer = _buffer;
+            var bodyData = memoryBuffer.Slice(HeaderSize + BodyLengthSizeInBuffer, bodyLength);
             
             var receivedEventArgs = new MessageReceivedEventArgs
             {
-                Bytes = _buffer,
                 TotalBytesRead = bytesRead,
                 NetworkStream = _networkStream,
                 Header = headerData,
+                TotalNumberOfBytesContainInBuffer = bodyLength,
                 Body = bodyData
             };
 
@@ -116,48 +126,35 @@ public class ClientTcp
     /// <param name="body">Body Data.</param>
     public async Task SendBytes(uint header, byte[] body)
     {
-        byte[] headerBytes = Encoding.UTF8.GetBytes(header.ToString());
+        byte[] headerBytes = BitConverter.GetBytes(header);
         
-        long headerSize = headerBytes.Length;
+        byte[] bodyLengthBytes = BitConverter.GetBytes(body.Length);
         
-        long hLengthForString = headerBytes.Length;
-        long bLengthForString = body.Length;
-        
-        ArraySegment<byte> bytes = new byte[PacketSize];
+        ArraySegment<byte> bytes = new byte[HeaderSize + BodyLengthSizeInBuffer + body.Length];
 
-        // take 10 bytes
-        var headerToArray = Encoding.UTF8.GetBytes(hLengthForString.ToString());
-        Array.Copy(headerToArray,
-            0, bytes.Array!, 0, headerToArray.Length);
+        Array.Copy(headerBytes,
+            0, bytes.Array!, 0, headerBytes.Length);
         
-        // take 10 bytes
-        var bodyLengthToArray = Encoding.UTF8.GetBytes(bLengthForString.ToString());
-        Array.Copy(bodyLengthToArray,
-            0, bytes.Array!, 10, bodyLengthToArray.Length);
+        Array.Copy(bodyLengthBytes, 0, bytes.Array!, HeaderSize, bodyLengthBytes.Length);
         
-        // starts from 20 to headerLength
-        Array.Copy(headerBytes, 0, bytes.Array!,
-            20, headerBytes.Length);
-        
-        // starts from 20 + headerLength to bodyLength
         Array.Copy(body, 0, bytes.Array!,
-            20 + headerSize, body.Length);
+            BodyLengthSizeInBuffer + HeaderSize, body.Length);
         
         await SendBytes(bytes.Array!);
     }
     
-    public uint ReadHeader(byte[] buf)
+    public uint ReadHeader(ReadOnlySpan<byte> buffer)
     {
-        ReadOnlySpan<byte> buffer = buf;
-
-        var headerLength = buffer.Slice(0, 10);
-        int.TryParse(Encoding.UTF8.GetString( headerLength ), out var lengthAsNum);
-
-        var headerAsMemory = buffer.Slice(20, lengthAsNum);
-
-        uint.TryParse(Encoding.UTF8.GetString(headerAsMemory), out uint header);
-
+        var headerSpan = buffer.Slice(0, 10);
+        var header = BitConverter.ToUInt32(headerSpan);
         return header;
+    }
+
+    public int ReadBodyLength(ReadOnlySpan<byte> buffer)
+    {
+        var bodyLengthSpan = buffer.Slice(10, 20);
+        var bodyLength = BitConverter.ToInt32(bodyLengthSpan);
+        return bodyLength;
     }
 
     /// <summary>

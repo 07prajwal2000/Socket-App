@@ -16,6 +16,10 @@ var server = new TcpServer();
 TcpServer.OnClientConnected += OnClientConnected;
 
 await server.Start();
+
+Console.ReadLine(); // use this for avoid closing the console window or exit.
+
+server.Stop(); // used to stop server.
 ```
 ```c#
 var server = new TcpServer();
@@ -26,7 +30,8 @@ TcpServer.OnMessageReceived += OnMessageReceivedCallback;
 await server.Start();
 ```
 
-### For Decoupling the logic. Use Register() and RegisterForClientConnected() method to register a whole class
+### To decouple the logic use Register() and RegisterForClientConnected() method and register a class
+#### When message received Registered class methods will automatically invoked.
 ```c#
 // To register any class it must implement the ' BaseTcpRegisterOnClientConnection ' class
 server.RegisterForClientConnected<SendClientDetails>(); // Fired when Client Connects.
@@ -49,4 +54,20 @@ public class ReceiveMessage : BaseTcpServerRegister
         Console.WriteLine("Body: " + body);
     }
 }
+```
+
+### For client side
+```c#
+var client = new ClientTcp();
+
+// you can use static Events to register 
+ClientTcp.OnMessageReceived += OnMessageReceived;
+// or use the modular one
+client.Register<GetIdFromServer>(HeaderConstants.ClientDetails);
+
+await client.Start(); // start connecting to server
+
+Console.ReadLine(); // use this for avoid closing the console window or exit.
+
+client.Stop(); // used to Disconnect from server.
 ```

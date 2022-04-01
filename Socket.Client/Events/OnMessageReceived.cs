@@ -6,8 +6,8 @@ public delegate void OnMessageReceived<in TSender>(TSender sender, MessageReceiv
 
 public struct MessageReceivedEventArgs
 {
-    public byte[] Bytes { get; set; }
     public int TotalBytesRead { get; set; }
+    public int TotalNumberOfBytesContainInBuffer { get; set; }
     public NetworkStream NetworkStream { get; set; }
     public uint Header { get; set; }
     public ReadOnlyMemory<byte> Body { get; set; }

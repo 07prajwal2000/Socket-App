@@ -11,8 +11,8 @@ public class MessageReceivedEventArgs
     
     public readonly int TotalConnections;
     public System.Net.Sockets.Socket ClientSocket { get; set; }
-    public byte[] Bytes { get; set; }
-    public int TotalBytesRead { get; set; }
+    public int TotalBytesContaining { get; set; }
+    public int TotalNumberOfDataContainsInBody { get; set; }
     public List<System.Net.Sockets.Socket> ConnectedClients { get; set; }
     public uint Header { get; set; }
     public ReadOnlyMemory<byte> Body { get; set; }
