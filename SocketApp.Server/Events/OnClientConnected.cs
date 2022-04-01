@@ -1,4 +1,4 @@
-﻿namespace Socket.Server.Events;
+﻿namespace SocketApp.Server.Events;
 
 public delegate void OnClientConnected(TcpServer sender, ClientConnectedEventArgs eventArgs);
 

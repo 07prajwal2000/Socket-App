@@ -1,6 +1,5 @@
 ﻿using System.Net;
 using System.Net.Sockets;
-using System.Text;
 using Socket.Client.Events;
 
 namespace Socket.Client;
@@ -17,11 +16,11 @@ public class ClientTcp
     private readonly byte[] _buffer;
     
     public readonly int PacketSize;
-    public readonly int HeaderSize = 10;
+    public readonly int HeaderSize;
     /// <summary>
     /// The range starts from HeaderSize to this Size contains the Size of the Body which is sent from the Server.
     /// </summary>
-    public readonly int BodyLengthSizeInBuffer = 10;
+    public readonly int BodyLengthSizeInBuffer;
 
     public static OnServerConnected<ClientTcp>? OnServerConnected;
     public static OnMessageReceived<ClientTcp>? OnMessageReceived;

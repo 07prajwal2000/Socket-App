@@ -1,7 +1,7 @@
 ﻿using System.Text;
 using Shared;
-using Socket.Server.Events;
 using SocketApp.Server;
+using SocketApp.Server.Events;
 
 namespace Socket.Server.Test;
 

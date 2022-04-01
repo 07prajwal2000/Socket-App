@@ -1,4 +1,4 @@
-﻿namespace Socket.Server.Events;
+﻿namespace SocketApp.Server.Events;
 
 public delegate void OnMessageReceived<in TSender>(TSender sender, MessageReceivedEventArgs eventArgs);
 

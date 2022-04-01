@@ -1,6 +1,6 @@
-﻿using Socket.Server.Events;
+﻿using SocketApp.Server.Events;
 
-namespace Socket.Server;
+namespace SocketApp.Server;
 
 public abstract class BaseTcpServerRegister
 {

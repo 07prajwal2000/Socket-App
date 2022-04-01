@@ -1,5 +1,4 @@
-﻿using Socket.Server;
-using Socket.Server.Events;
+﻿using SocketApp.Server.Events;
 
 namespace SocketApp.Server;
 

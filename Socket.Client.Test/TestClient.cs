@@ -2,7 +2,7 @@
 using Shared;
 using Socket.Client.Events;
 
-namespace Socket.Client.Test.Demo;
+namespace Socket.Client.Test;
 
 public class TestClient
 {

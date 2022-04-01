@@ -1,7 +1,4 @@
-﻿using System.Net.Sockets;
-using System.Text;
-
-namespace Socket.Server;
+﻿namespace SocketApp.Server;
 
 public static class Extensions
 {

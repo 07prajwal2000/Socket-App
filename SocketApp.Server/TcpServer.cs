@@ -1,14 +1,12 @@
 ﻿using System.Net;
 using System.Net.Sockets;
-using System.Text;
-using Socket.Server.Events;
-using SocketApp.Server;
+using SocketApp.Server.Events;
 
-namespace Socket.Server;
+namespace SocketApp.Server;
 
 public class TcpServer
 {
-    private readonly List<System.Net.Sockets.Socket> _clientSockets = new();
+    private readonly List<Socket> _clientSockets = new();
 
     private readonly Dictionary<uint, BaseTcpServerRegister> _registers = new();
     private int _totalConnections;
@@ -93,7 +91,7 @@ public class TcpServer
         // ReSharper disable once FunctionNeverReturns
     }
 
-    private void ReceiveCallback(IAsyncResult ar, System.Net.Sockets.Socket client)
+    private void ReceiveCallback(IAsyncResult ar, Socket client)
     {
         var bytesRead = 0;
         try
@@ -176,7 +174,7 @@ public class TcpServer
     /// <param name="client">the client to send the data.</param>
     /// <param name="header">Header Data should be uint. This is later used for Calling specific Method When Registered on Start of the server.<see cref="uint"/></param>
     /// <param name="body">Body Data.</param>
-    public async Task SendBytes(System.Net.Sockets.Socket client, uint header, byte[] body)
+    public async Task SendBytes(Socket client, uint header, byte[] body)
     {
         byte[] headerBytes = BitConverter.GetBytes(header);
 
@@ -209,6 +207,6 @@ public class TcpServer
         return bodyLength;
     }
     
-    private async Task SendBytes(System.Net.Sockets.Socket client, ArraySegment<byte> bufferWithHeader) => 
+    private async Task SendBytes(Socket client, ArraySegment<byte> bufferWithHeader) => 
         await client.SendAsync(bufferWithHeader, SocketFlags.None);
 }

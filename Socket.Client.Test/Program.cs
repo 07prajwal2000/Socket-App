@@ -1,4 +1,4 @@
-﻿using Socket.Client.Test.Demo;
+﻿using Socket.Client.Test;
 
 var testClient = new TestClient();
 
