@@ -14,10 +14,12 @@ public class TcpServer
 
     public readonly int PacketSize;
     public readonly int HeaderSize = 10;
+    public readonly int BodyLengthSizeInBuffer = 10;
+    public int TotalAvailableBodyLength => PacketSize - (BodyLengthSizeInBuffer + HeaderSize);
+    
     /// <summary>
     /// The range starts from HeaderSize to this Size contains the Size of the Body which is sent from the Server.
     /// </summary>
-    public readonly int BodyLengthSizeInBuffer = 10;
     
     public readonly TcpListener TcpListener;
     private bool _serverStarted;
