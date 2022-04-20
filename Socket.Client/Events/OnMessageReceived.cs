@@ -3,7 +3,13 @@ using Shared;
 
 namespace Socket.Client.Events;
 
-public delegate void OnMessageReceived<in TSender>(TSender sender, MessageReceivedEventArgs eventArgs);
+/// <summary>
+/// Called When a message comes to the client.
+/// </summary>
+/// <param name="sender">Tcp client as a sender</param>
+/// <param name="args">Useful arguments that contains the data and some others...</param>
+/// <param name="responsePacket">Use this packet class to write data and send it to server.</param>
+public delegate void OnMessageReceived<in TSender>(TSender sender, MessageReceivedEventArgs args, NetworkPacket responsePacket);
 
 public struct MessageReceivedEventArgs
 {

@@ -10,9 +10,9 @@ public class NetworkPacket : IDisposable
     public int WritePosition { get; private set; }
     public int ReadPosition { get; private set; }
     public readonly bool CanWrite;
-    public readonly bool IsReading;
+    public readonly bool IsReading = false;
 
-    public NetworkPacket(int packetSize = 1024, bool canWrite = true)
+    public NetworkPacket(int packetSize = 1004, bool canWrite = true)
     {
         PacketSize = packetSize;
         _buffer = new byte[PacketSize];
@@ -230,6 +230,26 @@ public class NetworkPacket : IDisposable
     }
     public ArraySegment<byte> ToBytesSegment() => _buffer;
 
+    public async Task ResetAsync()
+    {
+        _buffer = await Task.Run(() => ResetToZero(_buffer));
+        WritePosition = 0;
+        ReadPosition = 0;
+    }
+    
+    public async void Reset()
+    {
+        _buffer = await Task.Run(() => ResetToZero(_buffer));
+        WritePosition = 0;
+        ReadPosition = 0;
+    }
+
+    ArraySegment<byte> ResetToZero(ArraySegment<byte> bytes)
+    {
+        for (var i = 0; i < bytes.Count; i++) bytes[i] = 0;
+        return bytes;
+    }
+    
     #region Disposal
 
     private bool disposed;

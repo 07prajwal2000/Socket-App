@@ -7,21 +7,20 @@ namespace SocketApp.Server;
 
 public class TcpServer
 {
-    private readonly List<Socket> _clientSockets = new();
-    
     private readonly Dictionary<uint, BaseTcpServerRegister> _registers = new();
     private int _totalConnections;
     private readonly byte[] _buffer;
 
-    public readonly int PacketSize;
-    public readonly int HeaderSize = 10;
-    public readonly int BodyLengthSizeInBuffer = 10;
+    private readonly int _packetSize;
+    private readonly int _headerSize = 10;
+    private readonly int _bodyLengthSizeInBuffer = 10;
+    
     /// <summary>
     /// The range starts from HeaderSize to this Size contains the Size of the Body which is sent from the Server.
     /// </summary>
-    public int TotalAvailableBodyLength => PacketSize - (BodyLengthSizeInBuffer + HeaderSize);
+    private int TotalAvailableBodyLength => _packetSize - (_bodyLengthSizeInBuffer + _headerSize);
 
-    public readonly TcpListener TcpListener;
+    private readonly TcpListener _tcpListener;
     private bool _serverStarted;
     private bool _alreadyRegisteredForClientConnectedEvent;
     private BaseTcpRegisterOnClientConnection _onClientConnection;
@@ -32,29 +31,30 @@ public class TcpServer
     
     public TcpServer()
     {
-        var port = 2500;
-        PacketSize = 1024;
-        _buffer = new byte[PacketSize];
-        TcpListener = new(IPAddress.Loopback, port);
+        const int port = 2500;
+        _packetSize = 1024;
+        _buffer = new byte[_packetSize];
+        _tcpListener = new TcpListener(IPAddress.Loopback, port);
     }
 
     public TcpServer(IPAddress ipAddress, int port = 2500, int packetSize = 1024, int headerSize = 10, int bodyLengthSizeInBuffer = 10)
     {
-        HeaderSize = headerSize;
-        BodyLengthSizeInBuffer = bodyLengthSizeInBuffer;
-        PacketSize = packetSize;
-        _buffer = new byte[PacketSize];
-        TcpListener = new(ipAddress, port);
+        _headerSize = headerSize;
+        _bodyLengthSizeInBuffer = bodyLengthSizeInBuffer;
+        _packetSize = packetSize;
+        _buffer = new byte[_packetSize];
+        _tcpListener = new(ipAddress, port);
     }
 
     public async Task Start()
     {
         if (!_serverStarted)
         {
-            TcpListener.Start();
+            _tcpListener.Start();
             await Task.Run(StartServer).ConfigureAwait(false);
             _serverStarted = true;
         }
+
     }
 
     private async Task StartServer()
@@ -64,17 +64,15 @@ public class TcpServer
             try
             {
                 var clientSocket = await Task.Factory
-                    .FromAsync(TcpListener.Server.BeginAccept, TcpListener.Server.EndAccept, null)
+                    .FromAsync(_tcpListener.Server.BeginAccept, _tcpListener.Server.EndAccept, null)
                     .ConfigureAwait(false);
             
                 _totalConnections++;
-                _clientSockets.Add(clientSocket);
 
                 var eventArgs = new ClientConnectedEventArgs
                 {
                     TotalConnections = _totalConnections,
                     ClientSocket = clientSocket,
-                    ConnectedClients = _clientSockets,
                     NetworkPacket = new NetworkPacket(TotalAvailableBodyLength)
                 };
                 
@@ -82,7 +80,7 @@ public class TcpServer
                 
                 _onClientConnection?.OnClientConnected(this, eventArgs);
 
-                clientSocket.BeginReceive(_buffer, 0, PacketSize, SocketFlags.None, 
+                clientSocket.BeginReceive(_buffer, 0, _packetSize, SocketFlags.None, 
                     ar =>  ReceiveCallback(ar, clientSocket), clientSocket);
             }
             catch (Exception e)
@@ -106,22 +104,23 @@ public class TcpServer
             var bodyLength = ReadBodyLength(_buffer);
 
             ReadOnlyMemory<byte> bufferMemory = _buffer;
-            var body = bufferMemory.Slice(HeaderSize + BodyLengthSizeInBuffer, bodyLength);
+            var body = bufferMemory.Slice(_headerSize + _bodyLengthSizeInBuffer, bodyLength);
             
-            var eventArgs = new MessageReceivedEventArgs(_totalConnections)
+            var eventArgs = new MessageReceivedEventArgs
             {
                 ClientSocket = client,
                 TotalBytesContaining = bytesRead,
-                ConnectedClients = _clientSockets,
                 Body = body,
-                TotalNumberOfDataContainsInBody = bodyLength, 
+                TotalBytesContainingInBody = bodyLength, 
                 Header = header,
                 NetworkPacket = new NetworkPacket(body.ToArray(), false)
             };
             
-            OnMessageReceived?.Invoke(this, eventArgs);
-            _registers.TryGetValue( ReadHeader(_buffer), out var baseTcpRegister);
-            baseTcpRegister?.OnMessageReceived(this, eventArgs);
+            var responsePacket = new NetworkPacket(TotalAvailableBodyLength);
+            
+            OnMessageReceived?.Invoke(this, eventArgs, responsePacket);
+            _registers.TryGetValue( header, out var baseTcpRegister);
+            baseTcpRegister?.OnMessageReceived(this, eventArgs, responsePacket);
         }
         catch (Exception e)
         {
@@ -130,13 +129,13 @@ public class TcpServer
         finally
         {
             if (bytesRead > 0)
-                client.BeginReceive(_buffer, 0, PacketSize, SocketFlags.None, result => ReceiveCallback(result, client), null);
+                client.BeginReceive(_buffer, 0, _packetSize, SocketFlags.None, result => ReceiveCallback(result, client), null);
         }
     }
 
     public void Stop()
     {
-        TcpListener.Stop();
+        _tcpListener.Stop();
     }
 
     /// <summary>
@@ -216,15 +215,15 @@ public class TcpServer
 
     private ArraySegment<byte> CopyArray(byte[] body, byte[] headerBytes, byte[] bodyLengthBytes)
     {
-        ArraySegment<byte> bytes = new byte[HeaderSize + BodyLengthSizeInBuffer + body.Length];
+        ArraySegment<byte> bytes = new byte[_headerSize + _bodyLengthSizeInBuffer + body.Length];
 
         Array.Copy(headerBytes,
             0, bytes.Array!, 0, headerBytes.Length);
 
-        Array.Copy(bodyLengthBytes, 0, bytes.Array!, HeaderSize, bodyLengthBytes.Length);
+        Array.Copy(bodyLengthBytes, 0, bytes.Array!, _headerSize, bodyLengthBytes.Length);
 
         Array.Copy(body, 0, bytes.Array!,
-            BodyLengthSizeInBuffer + HeaderSize, body.Length);
+            _bodyLengthSizeInBuffer + _headerSize, body.Length);
         return bytes;
     }
 

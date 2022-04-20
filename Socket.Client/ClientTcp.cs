@@ -8,13 +8,17 @@ namespace Socket.Client;
 public class ClientTcp
 {
     private bool _started;
+    private bool _stoped;
     private NetworkStream _networkStream;
-    private Dictionary<uint, BaseTcpClientRegister> _registers = new();
+    public readonly NetworkPacket SenderPacket;
 
     private readonly TcpClient _client = new();
     private readonly int _port;
     private readonly IPAddress _ipAddress;
     private readonly byte[] _buffer;
+    private Dictionary<uint, BaseTcpClientRegister> _registers = new();
+    private BaseTcpClientConnected clientConnected;
+    private bool alreadyRegistered = false;
     
     public readonly int PacketSize;
     public readonly int HeaderSize;
@@ -22,6 +26,7 @@ public class ClientTcp
     /// The range starts from HeaderSize to this Size contains the Size of the Body which is sent from the Server.
     /// </summary>
     public readonly int BodyLengthSizeInBuffer;
+    public int TotalAvailableBodyLength => PacketSize - (BodyLengthSizeInBuffer + HeaderSize);
 
     public static OnServerConnected<ClientTcp>? OnServerConnected;
     public static OnMessageReceived<ClientTcp>? OnMessageReceived;
@@ -36,6 +41,7 @@ public class ClientTcp
         _buffer = new byte[packetSize];
         _port = port;
         _ipAddress = IPAddress.Loopback;
+        SenderPacket = new NetworkPacket(TotalAvailableBodyLength);
     }
 
     public ClientTcp(IPAddress ipAddress, int port = 2500, int packetSize = 1024, int headerSize = 10, int bodyLengthSizeInBuffer = 10)
@@ -46,6 +52,7 @@ public class ClientTcp
         _port = port;
         PacketSize = packetSize;
         _buffer = new byte[packetSize];
+        SenderPacket = new NetworkPacket(TotalAvailableBodyLength);
     }
     
     public async Task Start()
@@ -54,23 +61,39 @@ public class ClientTcp
         {
             await _client.ConnectAsync(_ipAddress, _port);
             _networkStream = _client.GetStream();
-        
+            
+            _networkStream.BeginRead(_buffer, 0, PacketSize, BeginRead, null);
+
+            ReadOnlyMemory<byte> memoryBuffer = _buffer;
+            var body = memoryBuffer.Slice(HeaderSize + BodyLengthSizeInBuffer);
+            
+            clientConnected?.OnServerRespond(this, 
+                new NetworkPacket(body),
+                ReadHeader(_buffer), 
+                ReadBodyLength(_buffer), 
+                _buffer);
+            
             OnServerConnected?.Invoke(this, new ServerConnectedEventArgs
             {
                 IpAddress = _ipAddress,
                 Port = _port,
                 ServerNetworkStream = _networkStream
             });
-        
-            _networkStream.BeginRead(_buffer, 0, PacketSize, BeginRead, null);
             _started = true;
+            _stoped = false;
         }
     }
     
     public void Stop()
     {
+        if (_stoped)
+        {
+            return;
+        }
         _client.Client.Close();
         _client.Dispose();
+        _stoped = true;
+        _started = false;
     }
     
     void BeginRead(IAsyncResult result)
@@ -98,10 +121,11 @@ public class ClientTcp
                 NetworkPacket = new NetworkPacket(bodyData)
             };
 
+            var responsePacket = new NetworkPacket(TotalAvailableBodyLength);
             _registers.TryGetValue(headerData, out var register);
-            register?.OnServerRespond(this, receivedEventArgs);
+            register?.OnServerRespond(this, receivedEventArgs, responsePacket);
             
-            OnMessageReceived?.Invoke(this, receivedEventArgs);
+            OnMessageReceived?.Invoke(this, receivedEventArgs, responsePacket);
         }
         catch (Exception e)
         {
@@ -134,6 +158,7 @@ public class ClientTcp
         var bytes = CopyArray(body, headerBytes, bodyLengthBytes);
 
         await SendBytes(bytes.Array!);
+        await SenderPacket.ResetAsync();
     }
 
     /// <summary>
@@ -155,7 +180,30 @@ public class ClientTcp
         var bytes = CopyArray(body, headerBytes, bodyLengthBytes);
 
         await SendBytes(bytes.Array!);
+        await SenderPacket.ResetAsync();
     }
+    
+    
+    /// <summary>
+    /// Send Data to Client Socket.<br/>
+    /// first 10 bytes of data is Assigned to read headerLength, 
+    /// next 10 bytes of data is Assigned to read BodyLength,
+    /// after that starts the Header Data and ranges to headerLength
+    /// same followed for Buffer
+    /// </summary>
+    /// <param name="header">Header Data should be uint. This is later used for Calling specific Method When Registered on Start of the server.<see cref="uint"/></param>
+    /// <param name="body">Body Data.</param>
+    /// <param name="totalBytesInBody">Total no of bytes written into buffer. or Total bytes containing in body</param>
+    public async Task SendBytes(uint header, NetworkPacket packet)
+    {
+        var bytes = CopyArray(
+            packet.ToArray(out var bodyLength),
+            BitConverter.GetBytes(header), BitConverter.GetBytes(bodyLength));
+        await SendBytes(bytes.Array!);
+        await SenderPacket.ResetAsync();
+    }
+    
+    
 
     private ArraySegment<byte> CopyArray(byte[] body, byte[] headerBytes, byte[] bodyLengthBytes)
     {
@@ -199,6 +247,13 @@ public class ClientTcp
 
         BaseTcpClientRegister register = new TClass();
         return _registers.TryAdd(header, register);
+    }
+    
+    public void RegisterOnServerConnected<TClass>() where TClass : BaseTcpClientConnected, new()
+    {
+        if (alreadyRegistered) return;
+        clientConnected = new TClass();
+        alreadyRegistered = true;
     }
     
     private async Task SendBytes(byte[] bufferWithHeader) => 
